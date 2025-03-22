@@ -1,5 +1,5 @@
 import pandas as pd
-from game import Game
+from .game import Game
 
 class Season():
     def __init__(self, df: pd.DataFrame):
