@@ -21,6 +21,12 @@ class Season():
 
     def __getitem__(self, key):
         return self.games[key]
+
+    def __repr__(self):
+        return str([id for id in self.all_data['GameID'].unique()])
+    
+    def __len__(self):
+        return len(self.games)
     
     def clean(self):
         for game in self.games:
