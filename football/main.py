@@ -7,8 +7,8 @@ loader = DataLoader(path)
 season_2016 = loader.seasons[-1] 
 season_2016.clean()
 
-# Select one game for example
-game = season_2016.games[30]  # You can loop over multiple games later
+# Select one game 
+game = season_2016.games[30] 
 
 # Split into first half (train) and second half (test)
 game_train, game_test = game.train_test_split(offense=None)
