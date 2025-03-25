@@ -6,12 +6,19 @@ import numpy as np
 import pandas as pd
 
 class BasicModel():
-    def __init__(self):
-        """Set up the DataLoader"""
+    def __init__(self, n_components: int):
+        """Set up the DataLoader and the GaussianHMM model."""
+        # Set up the DataLoader
         path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
         self.dl = DataLoader(path)
+        
+        # Indicate we haven't gotten the train/test sets yet
         self.train_yards = None
         self.test_yards = None
+        
+        # Define the GaussianHMM with number of components equaling the number of "momenta" states
+        self.model = GaussianHMM(n_components=n_components, n_iter=1000)
+
         
     def get_game_yards(self, season_id=0, game_id=0):
         """Get the yardage gains from the first half (train set)
@@ -25,9 +32,6 @@ class BasicModel():
         if not self.train_yards:
             print("No game is stored. Running get_game_yards() with default parameters...")
             self.get_game_yards()
-        
-        # Define the GaussianHMM with number of components equaling the number of "momenta" states
-        self.model = GaussianHMM(n_components=7, n_iter=1000)
 
         # Train on the observations
         self.model.fit(self.train_yards)
@@ -49,13 +53,18 @@ class BasicModel():
         self.forecast, _ = self.model.sample(N)
     
     def plot_forecast(self):
-        plt.scatter(np.arange(len(self.forecast)), self.forecast)
+        # Plot the forecasted values with the actual values
+        plt.scatter(np.arange(len(self.forecast)), self.forecast, alpha=0.8, label="Forecast")
+        plt.scatter(np.arange(len(self.test_yards)), self.test_yards, alpha=0.8, label="Actual")
+        
+        # Show the plot
         plt.xlabel("Play Number")
         plt.ylabel("Yards Gained")
+        plt.legend()
         plt.show()
         
 if __name__ == "__main__":
-    bm = BasicModel()
+    bm = BasicModel(n_components=7)
     bm.fit()
     bm.forecast()
     bm.plot_forecast()
