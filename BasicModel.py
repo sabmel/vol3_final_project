@@ -1,0 +1,61 @@
+import kagglehub
+from football.data_loader import DataLoader
+from matplotlib import pyplot as plt
+from hmmlearn.hmm import GaussianHMM
+import numpy as np
+import pandas as pd
+
+class BasicModel():
+    def __init__(self):
+        """Set up the DataLoader"""
+        path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
+        self.dl = DataLoader(path)
+        self.train_yards = None
+        self.test_yards = None
+        
+    def get_game_yards(self, season_id=0, game_id=0):
+        """Get the yardage gains from the first half (train set)
+        and the second half (test set) of the given game"""
+        train, test = self.dl[season_id][game_id].train_test_split()
+        self.train_yards = train["team0_yards"].to_numpy().reshape(-1, 1)
+        self.test_yards = test["team0_yards"].to_numpy().reshape(-1, 1)
+
+    def fit(self):
+        """Fit the sequence of yardage gains to the GaussianHMM model"""
+        if not self.train_yards:
+            print("No game is stored. Running get_game_yards() with default parameters...")
+            self.get_game_yards()
+        
+        # Define the GaussianHMM with number of components equaling the number of "momenta" states
+        self.model = GaussianHMM(n_components=7, n_iter=1000)
+
+        # Train on the observations
+        self.model.fit(self.train_yards)
+        
+    def forecast(self):
+        """Forecast the second half observations, and plot them"""
+        
+        # Predict the hidden states from the observed yard gains
+        preds = self.model.predict(self.train_yards)
+
+        # Set the hidden state according to the hidden state at the end of the first half
+        startprob = np.zeros(self.model.n_components)
+        startprob[preds[-1]] = 1.0
+        self.model.startprob_ = startprob
+        
+        # Forecast out the second half
+        # N = length of test set (TODO: placeholder if we want to change this)
+        N = len(self.test_yards)
+        self.forecast, _ = self.model.sample(N)
+    
+    def plot_forecast(self):
+        plt.scatter(np.arange(len(self.forecast)), self.forecast)
+        plt.xlabel("Play Number")
+        plt.ylabel("Yards Gained")
+        plt.show()
+        
+if __name__ == "__main__":
+    bm = BasicModel()
+    bm.fit()
+    bm.forecast()
+    bm.plot_forecast()
