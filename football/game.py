@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from .team import Team
 
 class Game():
     def __init__(self, df: pd.DataFrame):
@@ -24,6 +25,7 @@ class Game():
         TODO: Might be able to just drop rows with missing posteam
         """
         # find indices
+        # entries without a team in posession typically are timeouts or ends of quarters
         self.data.dropna(subset=['posteam', 'play_time'], inplace=True)
         # reset index
         self.data = self.data.reset_index(drop=True)
@@ -40,6 +42,11 @@ class Game():
             raise ValueError("Dataset has not been properly cleaned. There are more than 2 values in posteam.")
         
         team_map = {team:i for i, team in enumerate(teams)}
+        self.data['posteam'] = self.data['posteam'].map(team_map)
+        self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
+
+        home_team = self.data["HomeTeam"][0]
+        team_map = {team:0 if team == home_team else 1 for team in self.data} # this marks the home team as team 0
         self.data['posteam'] = self.data['posteam'].map(team_map)
         self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
 
@@ -71,14 +78,14 @@ class Game():
         self.no_overtime()
         self.cleaned = True
     
-    def train_test_split(self, offense=None):
+    def train_test_split(self, home_team=None):
         """Create a train-test split where the training data comes from the first half
         and the test data comes from the second half.
         Save the train/test sets as attributes and also return them.
         
-        If offense=None (default parameter), all rows are included in the train/test splits.
-        If offense=True, only rows corresponding to team0 possessions are included.
-        If offense=False, only rows corresponding to team1 possessions are included.
+        If home_team=None (default parameter), all rows are included in the train/test splits.
+        If home_team=True, only rows corresponding to home possessions are included.
+        If home_team=False, only rows corresponding to away possessions are included.
         """
         
         # Clean the datasets (if not already cleaned)
@@ -87,19 +94,19 @@ class Game():
         
         # Detect whether we are filtering based on possession:
         # No filtering
-        if offense is None:
+        if home_team is None:
             # Select train data from the first half and test data from the second
             self.train = self.data[self.data["qtr"].isin([1, 2])]
             self.test = self.data[self.data["qtr"].isin([3,4])]
             
             return self.train, self.test            
         
-        # Filtering for team0 on offense
-        if offense == True:
+        # Filtering for home team on offense
+        if home_team == True:
             posteam = 0
             
-        # Filtering for team0 on defense
-        elif offense == False:
+        # Filtering for away team on defense
+        elif home_team == False:
             posteam = 1
 
         # Select train data from the first half and test data from the second
@@ -107,3 +114,88 @@ class Game():
         self.test = self.data[(self.data["qtr"].isin([3,4])) & (self.data["posteam"] == posteam)]
         
         return self.train, self.test
+        
+    def play_(self, hometeam: Team, awayteam: Team, start_team: int) -> tuple[list]:
+        """Helper function
+        
+        Returns:
+            - home_list (list): list of yards gained by home team
+            during each of their possessions
+            - away_list (list): list of yards gained by away team
+            during each of their possession
+        """
+        time_left  = 1800 # seconds in 2nd half
+
+        # keep yards gained by each team in separate lists to start with
+        home_list = []
+        away_list = []
+
+        if start_team == 0:
+            while time_left > 0:
+                home_yards, time_spent = hometeam.play_possession()
+                time_left -= time_spent
+                home_list.append(home_yards)
+                if time_left < 0: break # Away team has no time to play
+                away_yards, time_spent = awayteam.play_possession()
+                time_left -= time_spent
+                away_list.append(away_yards)
+        elif start_team == 1:
+            while time_left > 0:
+                away_yards, time_spent = awayteam.play_possession()
+                time_left -= time_spent
+                away_list.append(away_yards)
+                if time_left < 0: break # Away team has no time to play
+                home_yards, time_spent = hometeam.play_possession()
+                time_left -= time_spent
+                home_list.append(home_yards)
+        else:
+            print(f"start_team was set to {start_team}. It needs to be 0 or 1.")
+
+        return home_list, away_list
+
+    def predict_2nd_half(self, n_hidden_states) -> pd.DataFrame:
+        """Use data from the first half of a game to predict the 2nd half. This
+        method defers to the Team class to make predictions. The Team class uses
+        GMMHMM 
+
+        Parameters:
+            - n_hidden_states (int) : The number of hidden states used in the HMM
+
+        Returns:
+            - possession (pd.DataFrame) : Pandas dataframe array with home team yards 
+                gained during possessions in the first column and away team yards 
+                gained during possessions
+                in the 2nd column
+        """
+
+        # Clean the datasets (if not already cleaned)
+        if not self.cleaned:
+            self.clean()
+        
+        # Get plays from first half
+        hometrain, hometest = self.train_test_split(home_team=True) # TODO: do something with the test set?
+        hometrain, hometest = hometrain.copy(), hometest.copy()
+        awaytrain, awaytest = self.train_test_split(home_team=False)
+        awaytrain, awaytest = awaytrain.copy(), awaytest.copy()
+
+        # Initialize teams
+        hometeam = Team(hometrain, n_components=n_hidden_states)
+        awayteam = Team(awaytrain, n_components=n_hidden_states)
+
+        # Choose first team to play in the 2nd half
+        #   Assume the opposite team starts 2nd half
+        start_team = 1 - self.data.iloc[0]["posteam"]
+
+
+        # Play 2nd half
+        home_list, away_list = self.play_(hometeam, awayteam, start_team)
+
+        # Put yards together into dataframe with 2 columns of equal length
+        def append_zero_to_shorter_(list1, list2):
+            if len(list1) < len(list2): list1.append(0)
+            elif len(list2) < len(list1): list2.append(0)
+            return list1, list2
+        home_list, away_list = append_zero_to_shorter_(home_list, away_list)
+        possessions = pd.DataFrame(np.array([home_list, away_list]).T)
+
+        return possessions

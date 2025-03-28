@@ -14,7 +14,7 @@ class BasicModel():
         
         # Indicate we haven't gotten the train/test sets yet
         self.train_yards = None
-        self.test_yards = None
+        self.test_yards = None  
         
         # Define the GaussianHMM with number of components equaling the number of "momenta" states
         self.model = GaussianHMM(n_components=n_components, n_iter=1000)

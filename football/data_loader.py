@@ -12,7 +12,7 @@ class DataLoader():
         Parameters:
             - path: ends with the directory the dataset is in
         """
-        df = pd.read_csv(path + "/NFL Play by Play 2009-2016 (v3).csv")
+        df = pd.read_csv(path + "/NFL Play by Play 2009-2016 (v3).csv", low_memory=False)
 
         self.all_data = df
         self.seasons = []
