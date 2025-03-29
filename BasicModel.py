@@ -62,6 +62,24 @@ class BasicModel():
         plt.ylabel("Yards Gained")
         plt.legend()
         plt.show()
+
+    def score(self, y):
+        """Predict the second half yardage, calculate the
+         yardage differential, and then see if we correctly
+         predict the team with more yards in the second half
+
+        y: the true yardage gain list from the 2nd half data
+        """
+
+        true_gain = np.sum(y)
+
+        self.forecast()
+        predicted = self.forecast
+        predicted_gain = np.sum(predicted)
+
+        if (predicted_gain>0 & true_gain>0) | (predicted_gain<=0 & true_gain<=0):
+            return 1
+        return 0
         
 if __name__ == "__main__":
     bm = BasicModel(n_components=7)
