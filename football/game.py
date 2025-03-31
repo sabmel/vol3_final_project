@@ -40,13 +40,9 @@ class Game():
         if len(teams) != 2:
             print(teams)
             raise ValueError("Dataset has not been properly cleaned. There are more than 2 values in posteam.")
-        
-        team_map = {team:i for i, team in enumerate(teams)}
-        self.data['posteam'] = self.data['posteam'].map(team_map)
-        self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
 
         home_team = self.data["HomeTeam"][0]
-        team_map = {team:0 if team == home_team else 1 for team in self.data} # this marks the home team as team 0
+        team_map = {team:0 if team == home_team else 1 for team in teams} # this marks the home team as team 0
         self.data['posteam'] = self.data['posteam'].map(team_map)
         self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
 
@@ -71,6 +67,10 @@ class Game():
         return self.data.to_string()
     
     def clean(self):
+        # If we accidentally clean again, it deletes all of 'posteam' and 'Defensiveteam'
+        if self.cleaned:
+            return
+
         self.calculate_time_per_play()
         self.drop_unnecessary_rows()
         self.encode_teams()
@@ -196,6 +196,14 @@ class Game():
             elif len(list2) < len(list1): list2.append(0)
             return list1, list2
         home_list, away_list = append_zero_to_shorter_(home_list, away_list)
+
+        print(home_list)
+        print()
+        print(away_list)
+        print("Length of list: ", len(home_list), len(away_list))
+        print("possession potential shape: ", np.array([home_list, away_list]).shape)
+        print("Length of list: ", len(home_list))
+        print(np.array([home_list, away_list]))
         possessions = pd.DataFrame(np.array([home_list, away_list]).T)
 
         return possessions
