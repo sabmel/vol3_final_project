@@ -6,20 +6,23 @@ import numpy as np
 import pandas as pd
 
 class BasicModel():
-    def __init__(self, n_components: int, path=None):
+    def __init__(self, n_components: int, df=None):
         """Set up the DataLoader and the GaussianHMM model."""
         # Set up the DataLoader
         self.prediction = None
-        if(path==None):
+
+        if(df==None):
             path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
-        self.dl = DataLoader(path)
+            df = DataLoader(path)
+
+        self.dl = df
         
         # Indicate we haven't gotten the train/test sets yet
         self.train_yards = None
         self.test_yards = None  
         
         # Define the GaussianHMM with number of components equaling the number of "momenta" states
-        self.model = GaussianHMM(n_components=n_components, n_iter=100,init_params='')
+        self.model = GaussianHMM(n_components=n_components, n_iter=1000)
 
         
     def get_game_yards(self, season_id=0, game_id=0):
@@ -37,6 +40,10 @@ class BasicModel():
 
         # Train on the observations
         self.model.fit(self.train_yards)
+
+        eps = 1e-6
+        self.model.transmat_ = self.model.transmat_ + eps
+        self.model.transmat_ = self.model.transmat_/self.model.transmat_.sum(axis=1,keepdims=True)
         
     def forecast(self):
         """Forecast the second half observations, and plot them"""
@@ -56,7 +63,7 @@ class BasicModel():
     
     def plot_forecast(self):
         # Plot the forecasted values with the actual values
-        plt.scatter(np.arange(len(self.forecast)), self.forecast, alpha=0.8, label="Forecast")
+        plt.scatter(np.arange(len(self.prediction)), self.prediction, alpha=0.8, label="Forecast")
         plt.scatter(np.arange(len(self.test_yards)), self.test_yards, alpha=0.8, label="Actual")
         
         # Show the plot
@@ -85,10 +92,28 @@ class BasicModel():
 if __name__ == "__main__":
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
     correct = 0
-    bm = BasicModel(n_components=7, path=path)
     n = 500
-    for i in range(n):
-        bm.fit()
-        bm.forecast()
-        correct += bm.score(bm.test_yards)
-    print(correct/n)
+    num_seasons = 1
+    #There are more than 200 games, but lets start with this
+    num_games = 200
+    loader = DataLoader(path)
+    correct_percents = []
+
+    for i in range(num_seasons):
+        for j in range(num_games):
+            model_correct = 0
+            for n in range(10):
+                bm = BasicModel(n_components=7, df=loader)
+                print(i,j)
+                bm.get_game_yards(i,j)
+                bm.fit()
+                bm.forecast()
+                model_correct += bm.score(bm.test_yards)
+            correct_percents.append(model_correct/10)
+
+    # for i in range(100):
+    #     bm.get_game_yards(5,5)
+    #     bm.fit()
+    #     bm.forecast()
+    #     correct += bm.score(bm.test_yards)
+    print(correct_percents)
