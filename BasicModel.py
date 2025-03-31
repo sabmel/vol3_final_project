@@ -6,10 +6,12 @@ import numpy as np
 import pandas as pd
 
 class BasicModel():
-    def __init__(self, n_components: int):
+    def __init__(self, n_components: int, path=None):
         """Set up the DataLoader and the GaussianHMM model."""
         # Set up the DataLoader
-        path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
+        self.prediction = None
+        if(path==None):
+            path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
         self.dl = DataLoader(path)
         
         # Indicate we haven't gotten the train/test sets yet
@@ -17,7 +19,7 @@ class BasicModel():
         self.test_yards = None  
         
         # Define the GaussianHMM with number of components equaling the number of "momenta" states
-        self.model = GaussianHMM(n_components=n_components, n_iter=1000)
+        self.model = GaussianHMM(n_components=n_components, n_iter=100,init_params='')
 
         
     def get_game_yards(self, season_id=0, game_id=0):
@@ -50,7 +52,7 @@ class BasicModel():
         # Forecast out the second half
         # N = length of test set (TODO: placeholder if we want to change this)
         N = len(self.test_yards)
-        self.forecast, _ = self.model.sample(N)
+        self.prediction, _ = self.model.sample(N)
     
     def plot_forecast(self):
         # Plot the forecasted values with the actual values
@@ -73,8 +75,7 @@ class BasicModel():
 
         true_gain = np.sum(y)
 
-        self.forecast()
-        predicted = self.forecast
+        predicted = self.prediction
         predicted_gain = np.sum(predicted)
 
         if (predicted_gain>0 & true_gain>0) | (predicted_gain<=0 & true_gain<=0):
@@ -82,7 +83,12 @@ class BasicModel():
         return 0
         
 if __name__ == "__main__":
-    bm = BasicModel(n_components=7)
-    bm.fit()
-    bm.forecast()
-    bm.plot_forecast()
+    path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
+    correct = 0
+    bm = BasicModel(n_components=7, path=path)
+    n = 500
+    for i in range(n):
+        bm.fit()
+        bm.forecast()
+        correct += bm.score(bm.test_yards)
+    print(correct/n)
