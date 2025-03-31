@@ -8,7 +8,6 @@ def logistic_regression_baseline(game_train: pd.DataFrame, game_test: pd.DataFra
     """
     Train a logistic regression model to predict whether the offensive team gains positive yardage.
     """
-
     # Define binary target: positive yardage (1) vs. non-positive yardage (0)
     y_train = (game_train['team0_yards'] > 0).astype(int)
     y_test = (game_test['team0_yards'] > 0).astype(int)
@@ -47,3 +46,16 @@ def time_series_baseline(game_train: pd.DataFrame, game_test: pd.DataFrame, lags
 
     print(f"Time Series (AR) MSE: {mse:.4f}")
     return ar_model, mse
+
+def simple_baseline(game_train, game_test):
+    """
+    Train a model that assumes that the 1st and second half are similar
+    to predict whether the offensive team gains positive yardage.
+    """
+    assumed_total_yards = 2*np.sum(game_train)
+
+    true_total_yards = np.sum(game_train)+np.sum(game_test)
+
+    if (assumed_total_yards > 0 and true_total_yards > 0) or (assumed_total_yards <= 0 and true_total_yards <= 0):
+        return 1
+    return 0

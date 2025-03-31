@@ -94,7 +94,7 @@ if __name__ == "__main__":
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
     correct = 0
     n = 500
-    num_seasons = 3
+    num_seasons = 8
     #There are more than 200 games, but lets start with this
     num_games = 200
     loader = DataLoader(path)
@@ -105,16 +105,10 @@ if __name__ == "__main__":
             model_correct = 0
             for n in range(10):
                 bm = BasicModel(n_components=7, df=loader)
-                print(i,j)
                 bm.get_game_yards(i,j)
                 bm.fit()
                 bm.forecast()
                 model_correct += bm.score(bm.test_yards)
             correct_percents.append(model_correct/10)
 
-    # for i in range(100):
-    #     bm.get_game_yards(5,5)
-    #     bm.fit()
-    #     bm.forecast()
-    #     correct += bm.score(bm.test_yards)
     print(sum(correct_percents)/len(correct_percents))
