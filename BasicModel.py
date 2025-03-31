@@ -79,13 +79,14 @@ class BasicModel():
 
         y: the true yardage gain list from the 2nd half data
         """
+        h1yards = np.sum(self.train_yards)
 
         true_gain = np.sum(y)
 
         predicted = self.prediction
         predicted_gain = np.sum(predicted)
 
-        if (predicted_gain>0 & true_gain>0) | (predicted_gain<=0 & true_gain<=0):
+        if (predicted_gain+h1yards>0 and true_gain+h1yards>0) or (predicted_gain+h1yards<=0 and true_gain+h1yards<=0):
             return 1
         return 0
         
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
     correct = 0
     n = 500
-    num_seasons = 1
+    num_seasons = 3
     #There are more than 200 games, but lets start with this
     num_games = 200
     loader = DataLoader(path)
@@ -116,4 +117,4 @@ if __name__ == "__main__":
     #     bm.fit()
     #     bm.forecast()
     #     correct += bm.score(bm.test_yards)
-    print(correct_percents)
+    print(sum(correct_percents)/len(correct_percents))
