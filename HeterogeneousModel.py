@@ -34,8 +34,8 @@ class HeterogeneousModel():
         """Get the yardage gains and possession ID from the first half (train set)
         and the second half (test set) of the given game"""
         train, test = self.dl[season_id][game_id].train_test_split()
-        self.train_cols = train[["team0_yards", "posteam"]].to_numpy().reshape(-1, 2)
-        self.test_cols = test[["team0_yards", "posteam"]].to_numpy().reshape(-1, 2)
+        self.train_cols = train[["Yards.Gained", "posteam"]].to_numpy().reshape(-1, 2)
+        self.test_cols = test[["Yards.Gained", "posteam"]].to_numpy().reshape(-1, 2)
 
     def fit(self):
         """Fit the sequence of yardage gains to the GaussianHMM model"""
