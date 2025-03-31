@@ -29,7 +29,7 @@ class BasicModel():
 
     def fit(self):
         """Fit the sequence of yardage gains to the GaussianHMM model"""
-        if not self.train_yards:
+        if self.train_yards is None:
             print("No game is stored. Running get_game_yards() with default parameters...")
             self.get_game_yards()
 

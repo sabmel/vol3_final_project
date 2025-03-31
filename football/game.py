@@ -40,13 +40,13 @@ class Game():
         if len(teams) != 2:
             print(teams)
             raise ValueError("Dataset has not been properly cleaned. There are more than 2 values in posteam.")
-        
-        team_map = {team:i for i, team in enumerate(teams)}
-        self.data['posteam'] = self.data['posteam'].map(team_map)
-        self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
+
+        # team_map = {team:i for i, team in enumerate(teams)}
+        # self.data['posteam'] = self.data['posteam'].map(team_map)
+        # self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
 
         home_team = self.data["HomeTeam"][0]
-        team_map = {team:0 if team == home_team else 1 for team in self.data} # this marks the home team as team 0
+        team_map = {team:0 if team == home_team else 1 for team in teams} # this marks the home team as team 0
         self.data['posteam'] = self.data['posteam'].map(team_map)
         self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
 
@@ -56,6 +56,7 @@ class Game():
         """Create a new column which is the yards gained in the play by team zero. 
         It is negative if team 1 is in posession and gains yards.
         """
+
         self.data['team0_yards'] = np.where(self.data['posteam'] == 0, self.data['Yards.Gained'], -self.data['Yards.Gained'])
 
         return self.data
