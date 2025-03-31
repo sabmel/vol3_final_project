@@ -31,9 +31,9 @@ class Team():
         """
         # Training data 
         obs = self.previous_plays[["Yards.Gained", "play_time"]]
-        print(obs.shape)
+        print("Obs shape in previous_plays", obs.shape)
         # Create and train the model
-        self.model = GaussianHMM(n_components=self.n_components, covariance_type="diag", n_iter=1000)
+        self.model = GaussianHMM(n_components=self.n_components, covariance_type="full", n_iter=1000)
         self.model.fit(obs)
 
         # Store the last hidden state
@@ -57,16 +57,19 @@ class Team():
         yards_gained = 0
         time_spent = 0
 
+        i = 0
         # Play until the team runs out of downs
         while self.down < 5:
+            i += 1
             # pull play yardage and play time from the GMMHMM
             self.model.startprob_ = self.last_hidden_state
-            x, z = self.model.sample(1)
+            z, x = self.model.sample(1)
             # split observation
-            yards, time = z
+            yards, time = z.T[0], z.T[1]
+            yards, time = yards[0], time[0]
             yards = yards.round()
             # update possession information
-            yards_gained += yards if yards>=0 else 0 # TODO: exclude negative yard gains?
+            yards_gained += yards
             time_spent += time
             self.down += 1
             self.yards_to_make -= yards
@@ -79,6 +82,9 @@ class Team():
                 # reset down count and yards to make
                 self.down = 1
                 self.yards_to_make = 10
+            # if we have covered over 70 yards, consider it a turnover
+            if yards_gained >= 70:
+                break
         
 
         return yards_gained, time_spent
