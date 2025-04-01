@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from hmmlearn.hmm import GaussianHMM
+from numpy.random import RandomState
 
 class Team():
     """A class which can be used for simulating games. It is only used for a
@@ -27,6 +28,7 @@ class Team():
         self.train_GMMHMM()
 
         # Important attributes for playing the game
+        self.rs = RandomState(seed=42)
 
     def train_GMMHMM(self):
         """Train a GMMHMM to predict the time spent on each play and yardage gained.
@@ -37,8 +39,8 @@ class Team():
         # Create and train several models, keep only the best
         best_model = None
         best_score = -np.inf
-        for seed in range(15):
-            model = GaussianHMM(n_components=self.n_components, covariance_type="full", random_state=seed, n_iter=1000)
+        for seed in range(8):
+            model = GaussianHMM(n_components=self.n_components, covariance_type="diag", random_state=seed, n_iter=1000)
             model.fit(obs)
             if model.score(obs) > best_score:
                 best_model = model
@@ -46,9 +48,7 @@ class Team():
 
         # Store the last hidden state
         preds = self.model.predict(obs)
-        startprob = np.zeros(self.n_components)
-        startprob[preds[-1]] = 1.0
-        self.last_hidden_state = startprob # TODO: what does this look like? An ndarray?
+        self.current_state = preds[-1]
 
 
 
@@ -69,7 +69,7 @@ class Team():
         while self.down < 5:
             i += 1
             # pull play yardage and play time from the GMMHMM
-            self.model.startprob_ = self.last_hidden_state
+            self.model.startprob_ = self.current_state
             z, x = self.model.sample(1)
             # split observation
             yards, time = z.T[0], z.T[1]
@@ -83,7 +83,7 @@ class Team():
             # update last hidden state
             startprob = np.zeros(self.n_components)
             startprob[x] = 1.0
-            self.last_hidden_state = startprob
+            self.current_state = startprob
             # reset down if 10 yards gained
             if self.yards_to_make <= 0:
                 # reset down count and yards to make
@@ -104,18 +104,17 @@ class Team():
             - time spent (float): seconds spent in possession of the ball
         """
         # pull play yardage and play time from the GMMHMM
-        #self.model.startprob_ = self.last_hidden_state
-        z, x = self.model.sample(1)
+        z = self.model._generate_sample_from_state(self.current_state, random_state=self.rs)
 
         # split observation
-        yards, time = z.T[0], z.T[1]
-        yards, time = yards[0], time[0]
+        yards, time = z[0], z[1]
         yards = yards.round()
 
-        # update last hidden state
-        #startprob = np.zeros(self.n_components)
-        #startprob[x] = 1.0
-        #self.last_hidden_state = startprob
+        # update the hidden state
+        self.current_state = np.random.choice(
+            self.model.n_components,
+            p=self.model.transmat_[self.current_state]
+        )
 
         return yards, time
 

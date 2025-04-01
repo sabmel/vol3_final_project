@@ -129,6 +129,7 @@ class Game():
         start_team_plays = []
         other_team_plays = []
         remaining_times = []
+        pos_team = []
 
         def play_possession_(team: Team):
             '''Play one possession with a team
@@ -179,6 +180,7 @@ class Game():
             play_times.extend(time)
             start_team_plays.extend(yards)
             other_team_plays.extend([0]*len(yards))
+            pos_team.extend([0]*len(yards)) # assume home team is starting
 
             # check for game being over
             if time_left <= 0: break 
@@ -189,18 +191,22 @@ class Game():
             play_times.extend(time)
             other_team_plays.extend(yards)
             start_team_plays.extend([0]*len(yards))
+            pos_team.extend([1]*len(yards)) # assume away team goes 2nd
 
         # Create the DataFrame
         plays = pd.DataFrame({
-            'home_yards': start_team_plays, # assume home team is first
-            'away_yards': other_team_plays,
             'play_time'     : play_times,
             'time_remaining': remaining_times,
             })
         
-        # rename according if away team started
-        if not start_is_home:
-            plays.rename(columns={'away_yards': 'home_yards', 'home_yards': 'away_yards'}, inplace=True)
+        # rename according to if away team started
+        if start_is_home:
+            plays['posteam'] = np.array(pos_team) # we assumed that the home team started
+            plays['team0_yards'] = np.array(start_team_plays) - np.array(other_team_plays)
+        else:
+            plays['posteam'] = 1 - np.array(pos_team)
+            plays['team0_yards'] = np.array(other_team_plays) - np.array(start_team_plays)
+        plays['Yards.Gained'] = np.array(start_team_plays) + np.array(other_team_plays)
 
         return plays
 
