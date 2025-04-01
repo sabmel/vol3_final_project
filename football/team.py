@@ -26,21 +26,30 @@ class Team():
 
         self.train_GMMHMM()
 
+        # Important attributes for playing the game
+
     def train_GMMHMM(self):
         """Train a GMMHMM to predict the time spent on each play and yardage gained.
         """
         # Training data 
         obs = self.previous_plays[["Yards.Gained", "play_time"]]
-        print("Obs shape in previous_plays", obs.shape)
-        # Create and train the model
-        self.model = GaussianHMM(n_components=self.n_components, covariance_type="full", n_iter=1000)
-        self.model.fit(obs)
+
+        # Create and train several models, keep only the best
+        best_model = None
+        best_score = -np.inf
+        for seed in range(15):
+            model = GaussianHMM(n_components=self.n_components, covariance_type="full", random_state=seed, n_iter=1000)
+            model.fit(obs)
+            if model.score(obs) > best_score:
+                best_model = model
+        self.model = best_model
 
         # Store the last hidden state
         preds = self.model.predict(obs)
         startprob = np.zeros(self.n_components)
         startprob[preds[-1]] = 1.0
         self.last_hidden_state = startprob # TODO: what does this look like? An ndarray?
+
 
 
 
@@ -52,8 +61,6 @@ class Team():
             - yards gained (int): total yards gained from the play, rounded to an integer
             - time spent (float): seconds spent in possession of the ball
         """
-        self.down = 1
-        self.yards_to_make = 10
         yards_gained = 0
         time_spent = 0
 
@@ -88,4 +95,27 @@ class Team():
         
 
         return yards_gained, time_spent
+
+    def play_drive(self):
+        """Play a single drive. 
+        
+        Returns:
+            - yards gained (int): total yards gained from the play, rounded to an integer
+            - time spent (float): seconds spent in possession of the ball
+        """
+        # pull play yardage and play time from the GMMHMM
+        #self.model.startprob_ = self.last_hidden_state
+        z, x = self.model.sample(1)
+
+        # split observation
+        yards, time = z.T[0], z.T[1]
+        yards, time = yards[0], time[0]
+        yards = yards.round()
+
+        # update last hidden state
+        #startprob = np.zeros(self.n_components)
+        #startprob[x] = 1.0
+        #self.last_hidden_state = startprob
+
+        return yards, time
 

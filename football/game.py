@@ -26,7 +26,7 @@ class Game():
         """
         # find indices
         # entries without a team in posession typically are timeouts or ends of quarters
-        self.data.dropna(subset=['posteam', 'play_time'], inplace=True)
+        self.data.dropna(subset=['posteam', 'play_time','FirstDown'], inplace=True)
         # reset index
         self.data = self.data.reset_index(drop=True)
 
@@ -40,10 +40,6 @@ class Game():
         if len(teams) != 2:
             print(teams)
             raise ValueError("Dataset has not been properly cleaned. There are more than 2 values in posteam.")
-
-        # team_map = {team:i for i, team in enumerate(teams)}
-        # self.data['posteam'] = self.data['posteam'].map(team_map)
-        # self.data['DefensiveTeam'] = self.data['DefensiveTeam'].map(team_map)
 
         home_team = self.data["HomeTeam"][0]
         team_map = {team:0 if team == home_team else 1 for team in teams} # this marks the home team as team 0
@@ -72,6 +68,9 @@ class Game():
         return self.data.to_string()
     
     def clean(self):
+        if self.cleaned:
+            print("game data is already clean")
+            return
         self.calculate_time_per_play()
         self.drop_unnecessary_rows()
         self.encode_teams()
@@ -115,44 +114,95 @@ class Game():
         self.test = self.data[(self.data["qtr"].isin([3,4])) & (self.data["posteam"] == posteam)]
         
         return self.train, self.test
-        
-    def play_(self, hometeam: Team, awayteam: Team, start_team: int) -> tuple[list]:
+
+    
+    def play_half(self, startteam: Team, otherteam: Team, start_is_home: bool) -> pd.DataFrame:
         """Helper function
         
         Returns:
-            - home_list (list): list of yards gained by home team
-            during each of their possessions
-            - away_list (list): list of yards gained by away team
-            during each of their possession
+            - plays (pd.Dataframe) : Dataframe with each play and an index of seconds left in the half
         """
         time_left  = 1800 # seconds in 2nd half
 
         # keep yards gained by each team in separate lists to start with
-        home_list = []
-        away_list = []
+        play_times = []
+        start_team_plays = []
+        other_team_plays = []
+        remaining_times = []
 
-        if start_team == 0:
-            while time_left > 0:
-                home_yards, time_spent = hometeam.play_possession()
-                time_left -= time_spent
-                home_list.append(home_yards)
-                if time_left < 0: break # Away team has no time to play
-                away_yards, time_spent = awayteam.play_possession()
-                time_left -= time_spent
-                away_list.append(away_yards)
-        elif start_team == 1:
-            while time_left > 0:
-                away_yards, time_spent = awayteam.play_possession()
-                time_left -= time_spent
-                away_list.append(away_yards)
-                if time_left < 0: break # Away team has no time to play
-                home_yards, time_spent = hometeam.play_possession()
-                time_left -= time_spent
-                home_list.append(home_yards)
-        else:
-            print(f"start_team was set to {start_team}. It needs to be 0 or 1.")
+        def play_possession_(team: Team):
+            '''Play one possession with a team
 
-        return home_list, away_list
+            Returns: list of yards, list of times
+            '''
+            nonlocal time_left
+            yards = []
+            times = []
+            # Keep track of downs and yards left
+            down = 1        # you have 4 of these before you "turn over" the ball
+            yards_to_make = 10 # need to make 10 yards to reset to down 1 (first down)
+            yards_made = 0 # we stop a possession after 70 yards gained (probably crossed the field)
+            while down <= 4:
+                # record remaining time
+                remaining_times.append(time_left)
+
+                # play one drive and record
+                yard_gain, time_spent = team.play_drive()
+                yards.append(yard_gain)
+                times.append(time_spent)
+
+                # update game variables
+                down += 1
+                yards_to_make -= yard_gain
+                yards_made += yard_gain
+                # update time
+                time_left -= time_spent
+
+                # reset down and yards_to_make if necessary
+                if yards_to_make <= 0:
+                    down = 1
+                    yards_to_make = 10
+
+                # Conditions to end possession
+                if time_left <= 0:
+                    return yards, times # end possession for the end of the game
+                elif yards_made >= 70:
+                    return yards, times # end possession for (probably) making a touchdown
+            
+            return yards, times
+        
+        # Play the 2nd half of the game
+        while time_left > 0: 
+            # let starting team play
+            yards, time = play_possession_(startteam)
+            # update lists
+            play_times.extend(time)
+            start_team_plays.extend(yards)
+            other_team_plays.extend([0]*len(yards))
+
+            # check for game being over
+            if time_left <= 0: break 
+
+            # have other team play
+            yards, time = play_possession_(otherteam)
+            # update lists
+            play_times.extend(time)
+            other_team_plays.extend(yards)
+            start_team_plays.extend([0]*len(yards))
+
+        # Create the DataFrame
+        plays = pd.DataFrame({
+            'home_yards': start_team_plays, # assume home team is first
+            'away_yards': other_team_plays,
+            'play_time'     : play_times,
+            'time_remaining': remaining_times,
+            })
+        
+        # rename according if away team started
+        if not start_is_home:
+            plays.rename(columns={'away_yards': 'home_yards', 'home_yards': 'away_yards'}, inplace=True)
+
+        return plays
 
     def predict_2nd_half(self, n_hidden_states) -> pd.DataFrame:
         """Use data from the first half of a game to predict the 2nd half. This
@@ -168,7 +218,6 @@ class Game():
                 gained during possessions
                 in the 2nd column
         """
-
         # Clean the datasets (if not already cleaned)
         if not self.cleaned:
             self.clean()
@@ -189,14 +238,9 @@ class Game():
 
 
         # Play 2nd half
-        home_list, away_list = self.play_(hometeam, awayteam, start_team)
+        if start_team == 0:
+            prediction = self.play_half(hometeam, awayteam, True)
+        else:
+            prediction = self.play_half(awayteam, hometeam, False)
 
-        # Put yards together into dataframe with 2 columns of equal length
-        def append_zero_to_shorter_(list1, list2):
-            if len(list1) < len(list2): list1.append(0)
-            elif len(list2) < len(list1): list2.append(0)
-            return list1, list2
-        home_list, away_list = append_zero_to_shorter_(home_list, away_list)
-        possessions = pd.DataFrame(np.array([home_list, away_list]).T)
-
-        return possessions
+        return prediction
