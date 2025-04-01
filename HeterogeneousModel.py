@@ -5,6 +5,8 @@ from pyhhmm.heterogeneous import HeterogeneousHMM
 import numpy as np
 import pandas as pd
 from multiprocessing import Pool
+import multiprocessing
+import warnings
 
 # NOTE: you need to install pyhhmm from the GitHub repo, not from pip
 # ! python -m pip install "git+https://github.com/fmorenopino/HeterogeneousHMM"
@@ -108,39 +110,42 @@ class HeterogeneousModel():
         or (predicted_gain + h1_net_yards <= 0 and true_gain + h1_net_yards <= 0):
             return 1
         
-        return 0        
-                      
-        
+        return 0
+
+def run_model(tup):
+    """Run model for season i, game j"""
+    i, j = tup
+    model_correct = 0
+    for n in range(10):
+        hm = HeterogeneousModel(n_components=7, dl=loader)
+        # print(i,j)
+        hm.get_game_yards_possessions(i, j)
+        hm.fit()
+        hm.forecast()
+        model_correct += hm.score(hm.test_cols)
+        # hm.plot_forecast_yards()
+        # hm.plot_forecast_posessions()
+
+    return model_correct / 10
+
+
 if __name__ == "__main__":
+    multiprocessing.set_start_method("fork")
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
     correct = 0
     n = 500
-    num_seasons = 1
+    num_seasons = 8
 
     #There are more than 200 games, but lets start with this
     loader = DataLoader(path)
     correct_percents = []
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=FutureWarning)
+        for i in range(num_seasons):
+            with Pool() as pool:
+                for corr in pool.imap_unordered(run_model, zip([i]*len(loader[i]), range(len(loader[i])))):
+                    correct_percents.append(corr)
+                    print("PERC CORRECT:", corr)
     
-    def run_model(tup):
-        """Run model for season i, game j"""
-        i, j = tup
-        model_correct = 0
-        for n in range(10):
-            hm = HeterogeneousModel(n_components=7, dl=loader)
-            # print(i,j)
-            hm.get_game_yards_possessions(i,j)
-            hm.fit()
-            hm.forecast()
-            model_correct += hm.score(hm.test_cols)
-            # hm.plot_forecast_yards()
-            # hm.plot_forecast_posessions()
-            
-        return model_correct/10
-        
-    for i in range(num_seasons):
-        with Pool() as pool:
-            for corr in pool.imap_unordered(run_model, zip([i]*len(loader[i]), range(len(loader[i])))):
-                correct_percents.append(corr)
-                print("PERC CORRECT:", corr)
-    
-    print(correct_percents)
+    print(sum(correct_percents)/len(correct_percents))
