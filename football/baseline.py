@@ -8,31 +8,28 @@ import kagglehub
 
 def get_game_level_data(game_train: pd.DataFrame, game_test: pd.DataFrame):
     """
-    Returns a single feature (first-half yardage difference) and a single label (which team 
-    has more yardage in the second half).
-    Team 0 is the 'home' side in create_team0_yardage, so if team0_yards is positive, team0 is outgaining team1.
+    Returns a single feature (first-half yardage difference for Team 0)
+    and a single label (whether Team 0 outgains Team 1 in the entire game).
     
     Returns:
-        X_value (float): yardage difference in the first half (Team 0's total - Team 1's total).
-        y_label (int): 1 if Team 0 outgains Team 1 in the second half, else 0.
+        X_value (float): yardage difference in the first half (Team 0 total).
+        y_label (int): 1 if Team 0 outgains Team 1 in the full game, else 0.
     """
-    # First half yardage difference
-    # 'team0_yards' is positive if team0 gains yardage, negative if team1 does.
+    # First half net yardage for Team 0
     first_half_total = game_train['team0_yards'].sum()
     
-    # Second half yardage difference
-    second_half_total = game_test['team0_yards'].sum()
+    # Full game net yardage for Team 0
+    full_game_total = first_half_total + game_test['team0_yards'].sum()
     
-    X_value = first_half_total  # yardage difference from the first half
-    y_label = 1 if second_half_total > 0 else 0
+    X_value = first_half_total
+    y_label = 1 if full_game_total > 0 else 0
     return X_value, y_label
 
 def logistic_regression_game_level(feature_list, label_list):
     """
-    Fits a logistic regression using the first-half yardage difference as predictor
-    and second-half outgain as the binary target.
+    Fits a logistic regression using the first-half yardage difference (Team 0)
+    as the predictor, and whether Team 0 outgains Team 1 in the entire game as the label.
     """
-    # Convert lists to arrays
     X = np.array(feature_list).reshape(-1,1)  # shape (n_games, 1)
     y = np.array(label_list)                  # shape (n_games,)
 
@@ -41,7 +38,7 @@ def logistic_regression_game_level(feature_list, label_list):
 
     preds = model.predict(X)
     acc = accuracy_score(y, preds)
-    print(f'Logistic Regression (game-level) Accuracy: {acc:.2%}')
+    print(f'Logistic Regression (full-game) Accuracy: {acc:.2%}')
     
     return model
 
