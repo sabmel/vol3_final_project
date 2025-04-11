@@ -65,7 +65,8 @@ class BasicModel():
         # Plot the forecasted values with the actual values
         plt.scatter(np.arange(len(self.prediction)), self.prediction, alpha=0.8, label="Forecast")
         plt.scatter(np.arange(len(self.test_yards)), self.test_yards, alpha=0.8, label="Actual")
-        
+        plt.title("GMMHMM Model")
+
         # Show the plot
         plt.xlabel("Play Number")
         plt.ylabel("Yards Gained")

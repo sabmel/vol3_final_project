@@ -70,10 +70,17 @@ class HeterogeneousModel():
     
     def plot_forecast_yards(self):
         # Plot the forecasted values with the actual values
-        plt.scatter(np.arange(len(self.prediction)), self.prediction[:,0], alpha=0.8, label="Forecast")
-        plt.scatter(np.arange(len(self.test_cols)), self.test_cols[:,0], alpha=0.8, label="Actual")
+        positive_yards_pred = (self.prediction[:,1]==0).astype(int) * self.prediction[:,0]
+        negative_yards_pred = (self.prediction[:,1]==1).astype(int) * self.prediction[:,0]
+
+        positive_yards_test = (self.test_cols[:,1]==0).astype(int) * self.test_cols[:,0]
+        negative_yards_test = (self.test_cols[:,1]==1).astype(int) * self.test_cols[:,0]
+
+        plt.scatter(np.arange(len(self.prediction)), positive_yards_pred - negative_yards_pred, alpha=0.8, label="Forecast")
+        plt.scatter(np.arange(len(self.test_cols)), positive_yards_test - negative_yards_test, alpha=0.8, label="Actual")
         
         # Show the plot
+        plt.title("Heterogeneous HMM")
         plt.xlabel("Play Number")
         plt.ylabel("Yards Gained")
         plt.legend()
@@ -136,16 +143,16 @@ if __name__ == "__main__":
     n = 500
     num_seasons = 8
 
-    #There are more than 200 games, but lets start with this
-    loader = DataLoader(path)
-    correct_percents = []
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=FutureWarning)
-        for i in range(num_seasons):
-            with Pool() as pool:
-                for corr in pool.imap_unordered(run_model, zip([i]*len(loader[i]), range(len(loader[i])))):
-                    correct_percents.append(corr)
-                    print("PERC CORRECT:", corr)
-    
-    print(sum(correct_percents)/len(correct_percents))
+    # #There are more than 200 games, but lets start with this
+    # loader = DataLoader(path)
+    # correct_percents = []
+    #
+    # with warnings.catch_warnings():
+    #     warnings.filterwarnings('ignore', category=FutureWarning)
+    #     for i in range(num_seasons):
+    #         with Pool() as pool:
+    #             for corr in pool.imap_unordered(run_model, zip([i]*len(loader[i]), range(len(loader[i])))):
+    #                 correct_percents.append(corr)
+    #                 print("PERC CORRECT:", corr)
+    #
+    # print(sum(correct_percents)/len(correct_percents))
