@@ -123,17 +123,25 @@ def run_model(tup):
     """Run model for season i, game j"""
     i, j = tup
     model_correct = 0
+    besthm = None
+    bestscore = -np.inf
     for n in range(10):
         hm = HeterogeneousModel(n_components=7, dl=loader)
         # print(i,j)
         hm.get_game_yards_possessions(i, j)
         hm.fit()
-        hm.forecast()
-        model_correct += hm.score(hm.test_cols)
-        # hm.plot_forecast_yards()
-        # hm.plot_forecast_posessions()
+        score = hm.model.score([hm.train_cols])
+        if score > bestscore:
+            bestscore = score
+            besthm = hm
 
-    return model_correct / 10
+    besthm.forecast()
+    model_correct += besthm.score(besthm.test_cols)
+    # hm.plot_forecast_yards()
+    # hm.plot_forecast_posessions()
+
+
+    return model_correct
 
 
 if __name__ == "__main__":
@@ -141,18 +149,18 @@ if __name__ == "__main__":
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
     correct = 0
     n = 500
-    num_seasons = 8
+    num_seasons = 1
 
-    # #There are more than 200 games, but lets start with this
-    # loader = DataLoader(path)
-    # correct_percents = []
-    #
-    # with warnings.catch_warnings():
-    #     warnings.filterwarnings('ignore', category=FutureWarning)
-    #     for i in range(num_seasons):
-    #         with Pool() as pool:
-    #             for corr in pool.imap_unordered(run_model, zip([i]*len(loader[i]), range(len(loader[i])))):
-    #                 correct_percents.append(corr)
-    #                 print("PERC CORRECT:", corr)
-    #
-    # print(sum(correct_percents)/len(correct_percents))
+    #There are more than 200 games, but lets start with this
+    loader = DataLoader(path)
+    correct_percents = []
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=FutureWarning)
+        for i in range(num_seasons):
+            with Pool() as pool:
+                for corr in pool.imap_unordered(run_model, zip([i]*len(loader[i]), range(len(loader[i])))):
+                    correct_percents.append(corr)
+                    print("PERC CORRECT:", corr)
+
+    print(sum(correct_percents)/len(correct_percents))
