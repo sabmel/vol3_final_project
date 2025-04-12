@@ -104,12 +104,19 @@ if __name__ == "__main__":
     for i in range(num_seasons):
         for j in range(num_games):
             model_correct = 0
+            bestbm = None
+            bestscore = -np.inf
             for n in range(10):
                 bm = BasicModel(n_components=7, df=loader)
                 bm.get_game_yards(i,j)
                 bm.fit()
-                bm.forecast()
-                model_correct += bm.score(bm.test_yards)
-            correct_percents.append(model_correct/10)
+                score = bm.model.score(bm.train_yards)
+                if score > bestscore:
+                    bestscore = score
+                    bestbm = bm
+
+            bestbm.forecast()
+            model_correct += bestbm.score(bestbm.test_yards)
+            correct_percents.append(model_correct)
 
     print(sum(correct_percents)/len(correct_percents))
