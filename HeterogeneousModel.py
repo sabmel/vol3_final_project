@@ -148,8 +148,8 @@ if __name__ == "__main__":
     multiprocessing.set_start_method("fork")
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
     correct = 0
-    n = 500
-    num_seasons = 1
+    n = 200
+    num_seasons = 8
 
     #There are more than 200 games, but lets start with this
     loader = DataLoader(path)

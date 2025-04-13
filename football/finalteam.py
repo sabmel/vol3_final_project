@@ -13,7 +13,7 @@ class Team():
     total yards gained in one game.
     """
 
-    def __init__(self, train: pd.DataFrame, n_components: int = 3):
+    def __init__(self, train,test, n_components: int = 3):
         """
         Parameters:
             - plays (df.DataFrame): Plays already made, from the first half of the game.
@@ -24,10 +24,11 @@ class Team():
         self.n_components = n_components
 
         # Save previous play data
-        self.previous_plays = train
+        self.train = train
+        self.test = test
 
         # Calculate yardage from first half
-        self.first_half_yrds = self.previous_plays['Yards.Gained'].sum()
+        self.first_half_yrds = np.sum(self.train)
 
         self.train_GMMHMM()
 
@@ -38,7 +39,7 @@ class Team():
         """Train a GMMHMM to predict the time spent on each play and yardage gained.
         """
         # Training data 
-        obs = self.previous_plays[["Yards.Gained", "play_time"]]
+        obs = self.train
 
         # Create and train several models, keep only the best
         best_model = None
@@ -67,7 +68,7 @@ class Team():
         """
         yards_gained = 0
         time_spent = 0
-        gains = []
+        self.gains = []
 
         i = 0
         # Play until the team runs out of downs
@@ -85,7 +86,7 @@ class Team():
             time_spent += time
             self.down += 1
             self.yards_to_make -= yards
-            gains.append(yards)
+            self.gains.append(yards)
             # update last hidden state
             startprob = np.zeros(self.n_components)
             startprob[x] = 1.0
@@ -101,6 +102,12 @@ class Team():
         
 
         return yards,yards_gained,time_spent
+
+
+    def prediction(self):
+        while len(self.gains) < len(self.train):
+            self.play_possession()
+        self.p = self.gains[:len(self.train)]
 
     def play_drive(self):
         """Play a single drive. 
@@ -124,7 +131,23 @@ class Team():
 
         return yards, time
 
+    def score(self, y):
+        """Predict the second half yardage, calculate the
+         yardage differential, and then see if we correctly
+         predict the team with more yards in the second half
 
+        y: the true yardage gain list from the 2nd half data
+        """
+        h1yards = np.sum(self.train)
+
+        true_gain = np.sum(y)
+
+        predicted = self.p
+        predicted_gain = np.sum(predicted)
+
+        if (predicted_gain+h1yards>0 and true_gain+h1yards>0) or (predicted_gain+h1yards<=0 and true_gain+h1yards<=0):
+            return 1
+        return 0
 
 if __name__ == "__main__":
     path = kagglehub.dataset_download("maxhorowitz/nflplaybyplay2009to2016")
@@ -149,21 +172,12 @@ if __name__ == "__main__":
     for i in range(num_seasons):
         for j in range(num_games):
             model_correct = 0
-            bestbm = None
-            bestscore = -np.inf
             train_yard, test_yard = get_game_yards(loader, season_id=i, game_id=j)
+            team = Team(train_yard, test_yard, n_components=7)
 
-            for n in range(10):
-                bm = Team(train_yard)
-                bm.get_game_yards(i, j)
-                bm.fit()
-                score = bm.model.score(bm.train_yards)
-                if score > bestscore:
-                    bestscore = score
-                    bestbm = bm
+            team.prediction()
 
-            bestbm.forecast()
-            model_correct += bestbm.score(bestbm.test_yards)
+            model_correct += team.score(team.test)
             correct_percents.append(model_correct)
 
     print(sum(correct_percents) / len(correct_percents))
