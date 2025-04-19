@@ -4,8 +4,6 @@ from hmmlearn.hmm import GaussianHMM
 from numpy.random import RandomState
 import kagglehub
 
-from football.data_loader import DataLoader
-
 
 class Team():
     """A class which can be used for simulating games. It is only used for a
@@ -133,7 +131,6 @@ if __name__ == "__main__":
     num_seasons = 8
     # There are more than 200 games, but lets start with this
     num_games = 200
-    loader = DataLoader(path)
     correct_percents = []
 
 
